@@ -45,9 +45,38 @@ function App() {
       });
       const consoleEvents = extractConsoleEvents(combinedEvents);
       populateConsoleDiv(consoleEvents);
+
+      const networkEvents = extractNetworkEvents(combinedEvents);
+      populateNetworkDiv(networkEvents);
     } catch (error) {
       setError(error.message || "Error fetching events");
     }
+  };
+
+  const extractNetworkEvents = (eventsArr) => {
+    return eventsArr.filter((obj) => obj.type === 200);
+  };
+
+  const populateNetworkDiv = (eventsArr) => {
+    const list = document.getElementById("network-list");
+
+    eventsArr.forEach((event) => {
+      const listItem = document.createElement("li");
+      // we're recording the time the response to the request was received at as event.timestamp to keep the events array in order
+      //      we push the network event to the events array AFTER the response is received so we can capture all the desired data
+      // we believe we should present the relative time of these network requests pertaining to when the request was made
+      const relTime = relativeTime(event.data.requestMadeAt);
+      listItem.textContent = `Time: ${formatTime(relTime)} ${event.data.type} ${
+        event.data.url
+      } ${event.data.method} 
+      }`;
+
+      listItem.onclick = () => {
+        player.goto(Math.floor(relTime * 1000));
+      };
+
+      list.appendChild(listItem);
+    });
   };
 
   const extractConsoleEvents = (eventsArr) => {
@@ -108,7 +137,12 @@ function App() {
       )}
       <div id="replayer"></div>
       <div id="console">
+        <h1>Console:</h1>
         <ul id="console-list"></ul>
+      </div>
+      <div id="network">
+        <h1>Network:</h1>
+        <ul id="network-list"></ul>
       </div>
     </>
   );

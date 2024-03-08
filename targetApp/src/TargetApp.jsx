@@ -3,25 +3,37 @@ import { record, getRecordConsolePlugin } from "rrweb";
 
 const TargetApp = () => {
   let events = [];
-  let networkRequests = [];
 
   const originalFetch = window.fetch;
-  window.fetch = function (input, init) {
+  window.fetch = function (url, config) {
     // Your Fetch interception logic here
-    const obj = {
-      url: input,
-      method: init.method,
-      headers: init.headers,
-      body: init.body.slice(0, 30),
+    // Type 200 arbitrarily assigned for us to know it's a network request
+    const networkEventObj = { type: 200 };
+
+    networkEventObj.data = {
+      url: url,
+      method: config.method,
+      headers: config.headers,
+      body: config.body.slice(0, 120),
       type: "FETCH",
-      timeStamp: Date.now(),
+      requestMadeAt: Date.now(),
     };
+    // arguments captures arguments to original function, see mdn for more details
     const result = originalFetch.apply(this, arguments);
 
     result
       .then((res) => {
-        obj.status = res.status;
-        networkRequests.push(obj);
+        const currentTime = Date.now();
+        networkEventObj.timestamp = currentTime;
+        networkEventObj.data.responseReceivedAt = currentTime;
+        networkEventObj.data.latency =
+          networkEventObj.data.responseReceivedAt -
+          networkEventObj.data.requestMadeAt;
+
+        networkEventObj.data.status = res.status;
+        // assigning timestamp at this point to ensure network event is pushed to event array in correct order related to other events
+        // need to wait till response received to push the object as we need the status of the response
+        events.push(networkEventObj);
         return res;
       })
       .catch((error) => {
