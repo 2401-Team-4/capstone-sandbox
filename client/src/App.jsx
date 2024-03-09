@@ -1,5 +1,4 @@
 import { useState } from "react";
-// import { getReplayConsolePlugin } from "rrweb";
 import rrwebPlayer from "rrweb-player";
 import "rrweb-player/dist/style.css";
 
@@ -15,34 +14,30 @@ function App() {
     }
 
     try {
-      const response = await fetch("http://localhost:3001/getRecordedEvents");
+      const response = await fetch("http://localhost:3001/allRecordedEvents");
       if (!response.ok) {
         throw new Error(`Failed to fetch events: ${response.status}`);
       }
 
-      const eventData = await response.json();
-      if (eventData.length === 0) {
+      const events = await response.json();
+      if (events.length === 0) {
         throw new Error("Event data is empty.");
       }
-
-      const combinedEvents = eventData.reduce(
-        (allEvents, currentEvent) => allEvents.concat(currentEvent.events),
+      console.log(events);
+      const combinedEvents = events.reduce(
+        (allEvents, currentBatch) => allEvents.concat(currentBatch),
         []
       );
       setError(null);
-
+      console.log(combinedEvents);
       initialTimeStamp = combinedEvents[0].timestamp;
       player = new rrwebPlayer({
         target: document.getElementById("replayer"),
         props: {
           events: combinedEvents,
         },
-        // plugins: [
-        //   getReplayConsolePlugin({
-        //     levels: ["info", "log", "warn", "error"],
-        //   }),
-        // ],
       });
+
       const consoleEvents = extractConsoleEvents(combinedEvents);
       populateConsoleDiv(consoleEvents);
 
@@ -54,7 +49,7 @@ function App() {
   };
 
   const extractNetworkEvents = (eventsArr) => {
-    return eventsArr.filter((obj) => obj.type === 200);
+    return eventsArr.filter((obj) => obj.type === 50);
   };
 
   const populateNetworkDiv = (eventsArr) => {
@@ -66,10 +61,11 @@ function App() {
       //      we push the network event to the events array AFTER the response is received so we can capture all the desired data
       // we believe we should present the relative time of these network requests pertaining to when the request was made
       const relTime = relativeTime(event.data.requestMadeAt);
-      listItem.textContent = `Time: ${formatTime(relTime)} ${event.data.type} ${
-        event.data.url
-      } ${event.data.method} 
-      }`;
+      listItem.textContent = `${formatTime(relTime)} | ${event.data.type} | ${
+        event.data.method
+      } | ${event.data.url} | Status: ${event.data.status} | Latency: ${
+        event.data.latency
+      }ms`;
 
       listItem.onclick = () => {
         player.goto(Math.floor(relTime * 1000));
@@ -89,7 +85,7 @@ function App() {
     eventsArr.forEach((event) => {
       const listItem = document.createElement("li");
       const relTime = relativeTime(event.timestamp);
-      listItem.textContent = `Time: ${formatTime(relTime)} ${
+      listItem.textContent = `${formatTime(relTime)} | ${
         event.data.payload.payload
       }`;
 

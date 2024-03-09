@@ -5,107 +5,68 @@ const TargetApp = () => {
   let events = [];
 
   const originalFetch = window.fetch;
-  window.fetch = async (url, config) => {
-    // Request Interceptor
-    // Type 200 arbitrarily assigned for us to know it's a network request
-    const networkEventObj = { type: 200 };
-    networkEventObj.data = {
-      url: url,
-      method: config ? config.method : "GET",
-      // headers: config.headers
-      // body: config.body.slice(0, 120),
-      type: "FETCH",
-      requestMadeAt: Date.now(),
-    };
+  window.fetch = async (...args) => {
+    let [resource, config] = args;
+    // Type 50 arbitrarily assigned for us to know it's a network event object in the array of event objects
+    const networkEventObj = { type: 50 };
 
-    const response = await originalFetch(url, config);
+    // Request Interceptor
+    fetchRequestInterceptor(resource, config, networkEventObj);
+
+    const response = await originalFetch(resource, config);
 
     // Response Interceptor
+    fetchResponseInterceptor(response, networkEventObj);
+    events.push(networkEventObj);
+    return response;
+  };
+
+  const fetchRequestInterceptor = (resource, config, networkEventObj) => {
+    //still need to handle if resource is a Request object opposed to URL
+
+    networkEventObj.data = {
+      url: resource,
+      type: "FETCH",
+      requestMadeAt: Date.now(),
+      // headers: config.headers
+      // body: config.body.slice(0, 120),
+    };
+
+    let method;
+    if (config === undefined) {
+      method = "GET";
+    } else {
+      method = config.method ? config.method : "GET";
+    }
+    networkEventObj.data.method = method;
+  };
+
+  const fetchResponseInterceptor = (response, networkEventObj) => {
     const currentTime = Date.now();
+    // assigning timestamp at this point to ensure network event is pushed to event array in correct order related to other events
+    // need to wait till response received to push the object as we need the status of the response
     networkEventObj.timestamp = currentTime;
     networkEventObj.data.responseReceivedAt = currentTime;
     networkEventObj.data.latency =
       networkEventObj.data.responseReceivedAt -
       networkEventObj.data.requestMadeAt;
     networkEventObj.data.status = response.status;
-
-    events.push(networkEventObj);
-
-    if (!response.ok) {
-      return Promise.reject(response);
-    }
-
-    return response;
-    // result
-    //   .then((res) => {
-    //     console.log("got in then");
-    //     if (!res.ok) {
-    //       console.log("res is not okay");
-    //     }
-
-    //     networkEventObj.data.status = res.status;
-    //     // assigning timestamp at this point to ensure network event is pushed to event array in correct order related to other events
-    //     // need to wait till response received to push the object as we need the status of the response
-    //     events.push(networkEventObj);
-    //     // may be redundant, seems can get to the .then handler without the return statement
-    //     return res;
-    //   })
-    //   // .catch(() => {});
-    //   .catch((error) => {
-    //     console.error("Fetch Error: ", error);
-    //     const currentTime = Date.now();
-    //     networkEventObj.timestamp = currentTime;
-    //     networkEventObj.data.responseReceivedAt = currentTime;
-    //     networkEventObj.data.latency =
-    //       networkEventObj.data.responseReceivedAt -
-    //       networkEventObj.data.requestMadeAt;
-
-    //     networkEventObj.data.status = "ERROR";
-    //     console.log("got right before push");
-    //     console.log(networkEventObj);
-    //     events.push(networkEventObj);
-    //   });
-
-    // return result;
   };
 
-  useEffect(() => {
-    const stopRecording = record({
-      emit(event) {
-        events.push(event);
+  const stopRecording = record({
+    emit(event) {
+      events.push(event);
 
-        // const defaultLog = console.log["__rrweb_original__"]
-        //   ? console.log["__rrweb_original__"]
-        //   : console.log;
-      },
-      plugins: [
-        getRecordConsolePlugin({
-          stringifyOptions: { stringLengthLimit: 250 },
-        }),
-      ],
-    });
-
-    const saveEventsInterval = setInterval(save, 10000);
-
-    const handleBeforeUnload = () => {
-      stopRecording();
-      save();
-      clearInterval(saveEventsInterval);
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    // Cleanup on unmount
-    // may be unnecessary to explicitly stop recording and clear interval
-    // but could be good to ensure no memory leak
-    return () => {
-      handleBeforeUnload();
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, []);
+      const defaultLog = console.log["__rrweb_original__"]
+        ? console.log["__rrweb_original__"]
+        : console.log;
+    },
+    plugins: [getRecordConsolePlugin()],
+  });
 
   const save = () => {
-    const body = JSON.stringify({ events });
+    const body = JSON.stringify(events);
+    console.log(events);
     events = [];
     fetch("http://localhost:3001/record", {
       method: "POST",
@@ -115,6 +76,34 @@ const TargetApp = () => {
       body,
     });
   };
+
+  const saveEventsInterval = setInterval(save, 5000);
+
+  // window.addEventListener("beforeunload", (e) => {
+  //   stopRecording();
+  //   clearInterval(saveEventsInterval);
+  //   save();
+  //   window.fetch = originalFetch;
+  // });
+
+  //This code seems more correct, but alters the event data sent, and misses network requests. Related to async vs sync?
+  // const save = async () => {
+  //   try {
+  //     const body = JSON.stringify(events);
+  //     const response = await fetch("http://localhost:3001/record", {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body,
+  //     });
+  //     // After a successful post to the server, clear the events array
+  //     events = [];
+  //   } catch (e) {
+  //     // If saving is unsuccessful, do not want to wipe events
+  //     console.error("Event Save Error: ", e);
+  //   }
+  // };
 
   return (
     <>
