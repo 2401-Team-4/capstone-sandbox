@@ -63,9 +63,13 @@ const stopRecording = record({
 });
 
 const save = () => {
+  if (events.length === 0) {
+    return;
+  }
+
   const body = JSON.stringify(events);
-  console.log(events);
   events = [];
+
   fetch("http://localhost:3001/record", {
     method: "POST",
     headers: {

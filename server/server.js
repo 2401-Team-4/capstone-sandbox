@@ -27,7 +27,7 @@ app.post("/record", (req, res) => {
   // } else {
   //   console.log("No network event payload");
   // }
-
+  console.log(batchOfEvents);
   allRecordedEvents.push(batchOfEvents);
   res.sendStatus(200);
 });
