@@ -19,21 +19,20 @@ app.post("/record", (req, res) => {
   //   console.log("No console payload");
   // }
 
-  let networkEventPayload = batchOfEvents.filter((obj) => obj.type === 50);
-  if (networkEventPayload.length > 0) {
-    networkEventPayload.forEach((event) => {
-      console.log("Network event: ", event);
-    });
-  } else {
-    console.log("No network event payload");
-  }
+  // let networkEventPayload = batchOfEvents.filter((obj) => obj.type === 50);
+  // if (networkEventPayload.length > 0) {
+  //   networkEventPayload.forEach((event) => {
+  //     console.log("Network event: ", event);
+  //   });
+  // } else {
+  //   console.log("No network event payload");
+  // }
 
   allRecordedEvents.push(batchOfEvents);
   res.sendStatus(200);
 });
 
 app.get("/allRecordedEvents", (req, res) => {
-  console.log(allRecordedEvents);
   res.json(allRecordedEvents);
 });
 
