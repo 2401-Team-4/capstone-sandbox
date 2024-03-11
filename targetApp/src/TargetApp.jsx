@@ -59,7 +59,6 @@ const fetchResponseInterceptor = (response, networkEventObj) => {
 
 const originalXHROpen = window.XMLHttpRequest.prototype.open;
 window.XMLHttpRequest.prototype.open = function (...args) {
-  // Do we need to verify arguments passed in are correct or will XHR request handle that for us?
   let [method, url] = args;
   // Type 50 arbitrarily assigned for us to know it's a network event object in the array of event objects
   const networkEventObj = { type: 50 };
@@ -76,9 +75,26 @@ window.XMLHttpRequest.prototype.open = function (...args) {
 };
 
 const xhrRequestInterceptor = (method, url, networkEventObj) => {
-  //still need to handle if url is not a string - but object with "stringifier" - see MDN
+  let urlString;
+
+  if (typeof url === "string") {
+    // If the URL is already a string, use it as is
+    urlString = url;
+  } else if (
+    typeof url === "object" &&
+    url !== null &&
+    typeof url.toString === "function"
+  ) {
+    // If the URL is an object with a custom toString method, use the result of toString
+    urlString = url.toString();
+  } else {
+    // If the URL is neither a string nor an object with a stringifier, handle it accordingly
+    console.warn("XHR request with unsupported URL format:", url);
+    urlString = String(url); // Convert to string using default toString
+  }
+
   networkEventObj.data = {
-    url: url,
+    url: urlString,
     type: "XHR",
     method: method,
     requestMadeAt: Date.now(),
@@ -91,7 +107,6 @@ const xhrResponseInterceptor = function (networkEventObj) {
   const currentTime = Date.now();
   // assigning timestamp at this point to ensure network event is pushed to event array in correct order related to other events
   // need to wait till response received to push the object as we need the status of the response
-
   networkEventObj.timestamp = currentTime;
   networkEventObj.data.responseReceivedAt = currentTime;
   networkEventObj.data.latency =
