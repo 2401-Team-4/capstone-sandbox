@@ -6,6 +6,7 @@ function App() {
   const [error, setError] = useState(null);
   let initialTimeStamp;
   let player;
+  let playerState;
 
   const handleClick = async () => {
     let replayerDiv = document.getElementById("replayer");
@@ -23,13 +24,13 @@ function App() {
       if (events.length === 0) {
         throw new Error("Event data is empty.");
       }
-      console.log(events);
+
       const combinedEvents = events.reduce(
         (allEvents, currentBatch) => allEvents.concat(currentBatch),
         []
       );
+
       setError(null);
-      console.log(combinedEvents);
       initialTimeStamp = combinedEvents[0].timestamp;
       player = new rrwebPlayer({
         target: document.getElementById("replayer"),
@@ -37,6 +38,15 @@ function App() {
           events: combinedEvents,
         },
       });
+
+      player.addEventListener(
+        "ui-update-player-state",
+        (payload) => (playerState = payload.payload)
+      );
+
+      /*
+      Fix bug code starts here
+      */
 
       const consoleEvents = extractConsoleEvents(combinedEvents);
       populateConsoleDiv(consoleEvents);
@@ -68,7 +78,13 @@ function App() {
       }ms`;
 
       listItem.onclick = () => {
-        player.goto(Math.floor(relTime * 1000));
+        if (playerState === "paused") {
+          player.play(); // prevents session replay from restarting from beginning if replay was at end
+          player.goto(Math.floor(relTime * 1000));
+          player.pause(); // returns to paused state for UX
+        } else {
+          player.goto(Math.floor(relTime * 1000));
+        }
       };
 
       list.appendChild(listItem);
@@ -90,7 +106,13 @@ function App() {
       }`;
 
       listItem.onclick = () => {
-        player.goto(Math.floor(relTime * 1000));
+        if (playerState === "paused") {
+          player.play(); // prevents session replay from restarting from beginning if replay was at end
+          player.goto(Math.floor(relTime * 1000));
+          player.pause(); // returns to paused state for UX
+        } else {
+          player.goto(Math.floor(relTime * 1000));
+        }
       };
 
       list.appendChild(listItem);
