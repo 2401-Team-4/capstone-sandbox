@@ -20,23 +20,29 @@ window.fetch = async (...args) => {
 };
 
 const fetchRequestInterceptor = (resource, config, networkEventObj) => {
-  //still need to handle if resource is a Request object opposed to URL
-
-  networkEventObj.data = {
-    url: resource,
-    type: "FETCH",
-    requestMadeAt: Date.now(),
-    // headers: config.headers
-    // body: config.body.slice(0, 120),
-  };
-
-  let method;
-  if (config === undefined) {
-    method = "GET";
+  if (resource instanceof Request) {
+    networkEventObj.data = {
+      url: resource.url,
+      type: "FETCH",
+      requestMadeAt: Date.now(),
+      method: resource.method,
+      // headers: resource.headers,
+      // body: resource.body ? resource.body.slice(0, 120) : undefined,
+    };
   } else {
-    method = config.method ? config.method : "GET";
+    networkEventObj.data = {
+      url: resource,
+      type: "FETCH",
+      requestMadeAt: Date.now(),
+      method: config ? (config.method ? config.method : "GET") : "GET",
+      // headers: config ? config.headers : undefined,
+      // body: config
+      //   ? config.body
+      //     ? config.body.slice(0, 120)
+      //     : undefined
+      //   : undefined,
+    };
   }
-  networkEventObj.data.method = method;
 };
 
 const fetchResponseInterceptor = (response, networkEventObj) => {
