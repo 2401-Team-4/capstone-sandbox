@@ -41,7 +41,7 @@ app.get("/random", (req, res) => {
 });
 
 app.delete("/deleteTest", (req, res) => {
-  res.status(305).json("deleted");
+  res.status(500).json("deleted");
 });
 
 app.listen(port, () => {

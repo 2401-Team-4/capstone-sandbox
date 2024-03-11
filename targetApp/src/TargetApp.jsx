@@ -15,7 +15,7 @@ window.fetch = async (...args) => {
 
   // Response Interceptor
   fetchResponseInterceptor(response, networkEventObj);
-  events.push({ ...networkEventObj });
+  events.push(networkEventObj);
   return response;
 };
 
@@ -49,6 +49,51 @@ const fetchResponseInterceptor = (response, networkEventObj) => {
     networkEventObj.data.responseReceivedAt -
     networkEventObj.data.requestMadeAt;
   networkEventObj.data.status = response.status;
+};
+
+const originalXHROpen = window.XMLHttpRequest.prototype.open;
+window.XMLHttpRequest.prototype.open = function (...args) {
+  // Do we need to verify arguments passed in are correct or will XHR request handle that for us?
+  let [method, url] = args;
+  // Type 50 arbitrarily assigned for us to know it's a network event object in the array of event objects
+  const networkEventObj = { type: 50 };
+
+  // Request Interceptor
+  xhrRequestInterceptor(method, url, networkEventObj);
+
+  // Response Interceptor
+  this.addEventListener("load", () =>
+    xhrResponseInterceptor.call(this, networkEventObj)
+  );
+
+  return originalXHROpen.apply(this, args);
+};
+
+const xhrRequestInterceptor = (method, url, networkEventObj) => {
+  //still need to handle if url is not a string - but object with "stringifier" - see MDN
+  networkEventObj.data = {
+    url: url,
+    type: "XHR",
+    method: method,
+    requestMadeAt: Date.now(),
+    // headers: config.headers
+    // body: config.body.slice(0, 120),
+  };
+};
+
+const xhrResponseInterceptor = function (networkEventObj) {
+  const currentTime = Date.now();
+  // assigning timestamp at this point to ensure network event is pushed to event array in correct order related to other events
+  // need to wait till response received to push the object as we need the status of the response
+
+  networkEventObj.timestamp = currentTime;
+  networkEventObj.data.responseReceivedAt = currentTime;
+  networkEventObj.data.latency =
+    networkEventObj.data.responseReceivedAt -
+    networkEventObj.data.requestMadeAt;
+  networkEventObj.data.status = this.status;
+
+  events.push(networkEventObj);
 };
 
 const stopRecording = record({
@@ -124,7 +169,7 @@ const TargetApp = () => {
             .catch((rej) => console.log("failure random"))
         }
       >
-        Get Random
+        FETCH Get Random
       </button>
       <button
         onClick={() =>
@@ -134,6 +179,16 @@ const TargetApp = () => {
         }
       >
         Delete
+      </button>
+      <button
+        onClick={() => {
+          const req = new XMLHttpRequest();
+          req.addEventListener("load", () => console.log("successful XHR"));
+          req.open("GET", "https://jsonplaceholder.typicode.com/todos/1");
+          req.send();
+        }}
+      >
+        XHR JSON Placeholder
       </button>
     </>
   );
